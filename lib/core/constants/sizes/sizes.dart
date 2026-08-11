@@ -47,11 +47,6 @@ class AppSizes {
   // Divider height
   static const double dividerHeight = 1.0; // Divider height
 
-  // Product item dimensions
-  static const double productImageSize = 120.0; // Product image size
-  static const double productImageRadius = 16.0; // Product image border radius
-  static const double productItemHeight = 160.0; // Product item height
-
   // Input field
   static const double inputFieldRadius = 12.0; // Input field border radius
   static const double spaceBtwInputFields =

@@ -1,7 +1,6 @@
 // lib/core/helper_functions/helper_function.dart
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 class HelperFunctions {
   static Color? getColor(String value) {
@@ -66,23 +65,6 @@ class HelperFunctions {
     return Theme.of(context).brightness == Brightness.dark;
   }
 
-  static Size screenSize(BuildContext context) {
-    return MediaQuery.of(context).size;
-  }
-
-  static double screenHeight(BuildContext context) {
-    return MediaQuery.of(context).size.height;
-  }
-
-  static double screenWidth(BuildContext context) {
-    return MediaQuery.of(context).size.width;
-  }
-
-  static String getFormattedDate(DateTime date,
-      {String format = 'dd MMM yyyy'}) {
-    return DateFormat(format).format(date);
-  }
-
   static List<T> removeDuplicates<T>(List<T> list) {
     return list.toSet().toList();
   }
@@ -95,21 +77,5 @@ class HelperFunctions {
       wrappedList.add(Row(children: rowChildren));
     }
     return wrappedList;
-  }
-
-  static double kgToLb(double kg) {
-    return kg * 2.20462;
-  }
-
-  static double lbToKg(double lb) {
-    return lb / 2.20462;
-  }
-
-  static double cmToFt(double cm) {
-    return cm / 30.48;
-  }
-
-  static double ftToCm(double ft) {
-    return ft * 30.48;
   }
 }

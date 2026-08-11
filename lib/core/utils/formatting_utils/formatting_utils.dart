@@ -66,13 +66,8 @@ class AppFormatUtils {
     }
   }
 
-  // Generates current social feed baseline date (e.g., Tue, 11, Aug)
-  static String formatSocialFeedTime() {
-    return DateFormat('EEE, dd, MMM', 'en_US').format(DateTime.now());
-  }
-
-  // Relative calculation for DateTime sources
-  static String timeAgoSinceDate(DateTime date, {bool numericDates = true}) {
+  // Relative calculation for DateTime sources (e.g., "3 hours ago")
+  static String timeAgoSinceDate(DateTime date) {
     final difference = DateTime.now().difference(date);
 
     if (difference.inMinutes < 60) {
@@ -90,71 +85,6 @@ class AppFormatUtils {
     } else {
       final years = (difference.inDays / 365).floor();
       return '$years year${years == 1 ? '' : 's'} ago';
-    }
-  }
-
-  // Post entry method wrapper
-  static String getFormattedPostTimestamp(DateTime postTimestamp) {
-    return timeAgoSinceDate(postTimestamp);
-  }
-
-  // Formats full extended layout for comment dates
-  static String formatCommentTime(DateTime date) {
-    return DateFormat('EEEE, dd, MMMM', 'en_US').format(date);
-  }
-
-  // Relative calculation for comments using native DateTime
-  static String commentTimeAgoSinceDate(
-    DateTime date, {
-    bool numericDates = true,
-  }) {
-    return timeAgoSinceDate(date, numericDates: numericDates);
-  }
-
-  // Comment entry method wrapper
-  static String getCommentFormattedPostTimestamp(DateTime postTimestamp) {
-    return commentTimeAgoSinceDate(postTimestamp);
-  }
-
-  // Detailed chat message relative time engine
-  static String formatMessageTimestamp(DateTime date) {
-    final difference = DateTime.now().difference(date);
-
-    if (difference.inMinutes < 1) return 'Just now';
-    if (difference.inMinutes < 60) return '${difference.inMinutes} minutes ago';
-    if (difference.inHours < 24) return '${difference.inHours} hours ago';
-    if (difference.inDays == 1) return 'Yesterday';
-    if (difference.inDays < 7) return '${difference.inDays} days ago';
-
-    if (difference.inDays < 30) {
-      int weeks = (difference.inDays / 7).floor();
-      return '$weeks ${weeks > 1 ? 'weeks' : 'week'} ago';
-    }
-    if (difference.inDays < 365) {
-      int months = (difference.inDays / 30).floor();
-      return '$months ${months > 1 ? 'months' : 'month'} ago';
-    }
-    int years = (difference.inDays / 365).floor();
-    return '$years ${years > 1 ? 'years' : 'year'} ago';
-  }
-
-  // Counts down live duration variables cleanly
-  static String formatRemainingTime(Duration duration) {
-    if (duration.isNegative) return "Challenge Ended";
-
-    final days = duration.inDays;
-    final hours = duration.inHours % 24;
-    final minutes = duration.inMinutes % 60;
-    final seconds = duration.inSeconds % 60;
-
-    if (days > 0) {
-      return "$days Day : $hours Hr : $minutes min : $seconds sec";
-    } else if (hours > 0) {
-      return "$hours Hr : $minutes min : $seconds sec";
-    } else if (minutes > 0) {
-      return "$minutes min : $seconds sec";
-    } else {
-      return "$seconds second";
     }
   }
 }

@@ -80,42 +80,6 @@ class AppColors {
   static const Color lightGrey = Color(0xFFF5F6FA);
   static const Color white = Color(0xFFFFFFFF);
 
-  // ─── Subject Colors (canonical — same everywhere) ─────────────────────────────
-  static const Color physicsColor = Color(0xFF9C27B0);  // Purple
-  static const Color chemistryColor = Color(0xFF009688); // Teal
-  static const Color biologyColor = Color(0xFFFF9800);   // Orange
-  static const Color mathColor = Color(0xFF2196F3);      // Blue
-  static const Color englishColor = Color(0xFF3F51B5);   // Indigo
-
-  // Keep legacy names as aliases so existing code doesn't break
-  static const Color physicsPurple = physicsColor;
-  static const Color chemistryGreen = chemistryColor;
-  static const Color biologyOrange = biologyColor;
-  static const Color mathPurple = mathColor;
-  static const Color englishTerracotta = englishColor;
-
-  // ─── Progress & Score Colors ──────────────────────────────────────────────────
-  static const Color highScore = Color(0xFF22C55E);
-  static const Color mediumScore = Color(0xFFF59E0B);
-  static const Color lowScore = Color(0xFFEF4444);
-
-  // ─── Quiz & Test Colors ───────────────────────────────────────────────────────
-  static const Color correctAnswer = Color(0xFF22C55E);
-  static const Color incorrectAnswer = Color(0xFFEF4444);
-  static const Color neutralAnswer = Color(0xFFBDC3C7);
-
-  // ─── Test Type Colors ─────────────────────────────────────────────────────────
-  static const Color weeklyTest = Color(0xFF4F6EF7);    // Primary Blue
-  static const Color monthlyTest = Color(0xFF8B5CF6);   // Violet
-  static const Color fullLengthTest = Color(0xFF14B8A6); // Teal
-  static const Color practiceTest = Color(0xFF22C55E);  // Success Green
-  static const Color customTest = Color(0xFFF97316);    // Orange
-
-  // ─── Status Colors ────────────────────────────────────────────────────────────
-  static const Color locked = Color(0xFFEF4444);
-  static const Color completed = Color(0xFFF59E0B);
-  static const Color available = Color(0xFF22C55E);
-
   // ─── Card & Surface Colors ────────────────────────────────────────────────────
   static const Color cardSurface = Color(0xFFFFFFFF);
   static const Color cardBackground = Color(0xFFF5F6FA);
