@@ -1,6 +1,10 @@
 import 'dart:math';
+import 'package:k_chart_multiple/flutter_k_chart.dart';
 import 'package:trading_advisor/core/models/coin_model.dart';
 
+/// Offline fallback candle generator, used by [CoinChartPage] when the
+/// CoinGecko chart request fails (rate limit, no connection, etc.) so the
+/// chart still has something to show instead of an error screen.
 class KlineDataGenerator {
   /// Builds candles via KLineEntity.fromJson, matching the standard k_chart
   /// data schema (open/close/high/low/vol/time). Verify these key names
@@ -11,7 +15,6 @@ class KlineDataGenerator {
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     const stepMs = 3600 * 1000; // 1h candles
 
-    final closesOldestFirst = <double>[];
     double price = coin.currentPrice;
     final walked = <double>[price];
     for (int i = 0; i < count - 1; i++) {
@@ -19,7 +22,42 @@ class KlineDataGenerator {
       price = price / (1 + drift);
       walked.add(price);
     }
-    closesOldestFirst.addAll(walked.reversed);
+    final closesOldestFirst = walked.reversed.toList();
+
+    // The random walk above wiggles loosely around currentPrice and often
+    // never reaches the coin's entry/target/invalidation levels. Those
+    // levels drive the chart's trade-mark annotations, and the chart's
+    // Y-axis is auto-scaled purely from candle high/low — a mark outside
+    // that range simply doesn't render. Stretch the walk's amplitude
+    // (anchored on the last candle, which stays pinned at currentPrice) so
+    // every key level is comfortably inside the visible price range.
+    final anchor = coin.currentPrice;
+    final rawMin = closesOldestFirst.reduce(min);
+    final rawMax = closesOldestFirst.reduce(max);
+    final neededMin = [
+      coin.invalidationLevel,
+      coin.entryZoneLow,
+      anchor * 0.95,
+    ].reduce(min);
+    final neededMax = [
+      coin.exitTarget * 1.06, // headroom so the "Target" mark/label clears
+      // the chart's own top price-axis label instead of colliding with it
+      coin.entryZoneHigh,
+      anchor * 1.05,
+    ].reduce(max);
+
+    double scale = 1.0;
+    if (rawMin < anchor && neededMin < rawMin) {
+      scale = max(scale, (neededMin - anchor) / (rawMin - anchor));
+    }
+    if (rawMax > anchor && neededMax > rawMax) {
+      scale = max(scale, (neededMax - anchor) / (rawMax - anchor));
+    }
+    if (scale > 1.0) {
+      for (int i = 0; i < closesOldestFirst.length; i++) {
+        closesOldestFirst[i] = anchor + (closesOldestFirst[i] - anchor) * scale;
+      }
+    }
 
     final maps = <Map<String, dynamic>>[];
     double volume = coin.currentPrice < 1 ? 5000000 : 800000;
@@ -43,28 +81,5 @@ class KlineDataGenerator {
     final datas = maps.map((m) => KLineEntity.fromJson(m)).toList();
     DataUtil.calculate(datas); // required — computes MA/indicators/probability
     return datas;
-  }
-
-  /// Maps the coin's recommendation fields onto chart trade markers —
-  /// entry zone, exit target, and invalidation level become visible
-  /// annotations directly on the candles.
-  static List<TradeMark> tradeMarks(Coin coin, List<KLineEntity> datas) {
-    final lastIndex = datas.length - 1;
-    return [
-      TradeMark(
-        index: lastIndex,
-        price: (coin.entryZoneLow + coin.entryZoneHigh) / 2,
-        side: TradeSide.long,
-        action: TradeAction.entry,
-        label: 'Entry',
-      ),
-      TradeMark(
-        index: lastIndex,
-        price: coin.exitTarget,
-        side: TradeSide.long,
-        action: TradeAction.tp,
-        label: 'Target',
-      ),
-    ];
   }
 }

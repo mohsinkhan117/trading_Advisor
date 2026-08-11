@@ -9,11 +9,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  intl: ^0.20.3
+  intl: ^0.20.2
   cupertino_icons: ^1.0.8
   permission_handler: ^13.0.1
   provider: ^6.1.5+1
   k_chart_multiple: ^1.4.1
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:

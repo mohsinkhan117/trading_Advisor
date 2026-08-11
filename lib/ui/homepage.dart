@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:trading_advisor/core/models/coin_model.dart';
 import 'package:trading_advisor/core/theme/app_colors/app_colors.dart';
 import 'package:trading_advisor/core/constants/sizes/sizes.dart';
+import 'package:trading_advisor/ui/coin_chart_page.dart';
 import 'package:trading_advisor/ui/homepage_view_model.dart';
 import 'package:trading_advisor/widgets/price_change_card.dart';
 
@@ -11,6 +12,10 @@ class Homepage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<HomeViewModel>();
+    final isFirstLoad = vm.isLoading && vm.marketCoins.isEmpty;
+    final loadFailed = vm.error != null && vm.marketCoins.isEmpty;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -22,19 +27,58 @@ class Homepage extends StatelessWidget {
       body: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: () => context.read<HomeViewModel>().refresh(),
-        child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: AppSizes.md),
-          children: const [
-            _SectionHeader(title: 'Recommended Coins'),
-            SizedBox(height: AppSizes.sm),
-            RecommendedCoins(),
-            SizedBox(height: AppSizes.lg),
-            _SectionHeader(title: 'Market'),
-            SizedBox(height: AppSizes.sm),
-            MarketOverview(),
-          ],
-        ),
+        child: isFirstLoad
+            ? const Center(child: CircularProgressIndicator())
+            : loadFailed
+                ? _ErrorState(
+                    message: vm.error!,
+                    onRetry: () => context.read<HomeViewModel>().refresh(),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.symmetric(vertical: AppSizes.md),
+                    children: const [
+                      _SectionHeader(title: 'Recommended Coins'),
+                      SizedBox(height: AppSizes.sm),
+                      RecommendedCoins(),
+                      SizedBox(height: AppSizes.lg),
+                      _SectionHeader(title: 'Market'),
+                      SizedBox(height: AppSizes.sm),
+                      MarketOverview(),
+                    ],
+                  ),
       ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(AppSizes.lg),
+      children: [
+        const SizedBox(height: 80),
+        const Icon(
+          Icons.cloud_off_rounded,
+          size: 40,
+          color: AppColors.textMuted,
+        ),
+        const SizedBox(height: AppSizes.sm),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: AppSizes.md),
+        Center(
+          child: ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+        ),
+      ],
     );
   }
 }
@@ -74,7 +118,7 @@ class RecommendedCoins extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
         itemCount: coins.length,
-        separatorBuilder: (_, __) => const SizedBox(width: AppSizes.sm),
+        separatorBuilder: (_, _) => const SizedBox(width: AppSizes.sm),
         itemBuilder: (context, index) {
           final coin = coins[index];
           return RecommendedCoin(
@@ -343,7 +387,9 @@ class CoinDetails extends StatelessWidget {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => CoinChart(coin: coin)),
+                    MaterialPageRoute(
+                      builder: (_) => CoinChartPage(coin: coin),
+                    ),
                   );
                 },
                 icon: const Icon(
@@ -417,26 +463,6 @@ class CoinDetails extends StatelessWidget {
   }
 }
 
-// ========= coin chart =================
-class CoinChart extends StatelessWidget {
-  final Coin coin;
-  const CoinChart({super.key, required this.coin});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        foregroundColor: AppColors.textPrimary,
-        title: Text('${coin.symbol} Chart'),
-      ),
-      body:
-          const Placeholder(), // swap for fl_chart/syncfusion candlestick later
-    );
-  }
-}
-
 class CoinAvatar extends StatelessWidget {
   final Coin coin;
   final double radius;
@@ -481,47 +507,32 @@ class MarketOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
+    final coins = context.watch<HomeViewModel>().marketCoins;
+
+    return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSizes.md),
-      children: const [
-        PriceChangeCard(
-          symbol: 'AAPL',
-          name: 'Apple Inc.',
-          price: 233.45,
-          change: 3.12,
-          changePercent: 1.35,
-        ),
-        PriceChangeCard(
-          symbol: 'TSLA',
-          name: 'Tesla, Inc.',
-          price: 214.11,
-          change: -5.67,
-          changePercent: -2.58,
-        ),
-        PriceChangeCard(
-          symbol: 'MSFT',
-          name: 'Microsoft Corp.',
-          price: 421.02,
-          change: 0.0,
-          changePercent: 0.0,
-        ),
-        PriceChangeCard(
-          symbol: 'BTC-USD',
-          name: 'Bitcoin',
-          price: 62150.32,
-          change: 1305.20,
-          changePercent: 2.14,
-        ),
-        PriceChangeCard(
-          symbol: 'ETH-USD',
-          name: 'Ethereum',
-          price: 3420.10,
-          change: -49.30,
-          changePercent: -1.42,
-        ),
-      ],
+      itemCount: coins.length,
+      itemBuilder: (context, index) {
+        final coin = coins[index];
+        return PriceChangeCard(
+          symbol: coin.symbol,
+          name: coin.name,
+          price: coin.currentPrice,
+          change: coin.changeAmount24h,
+          changePercent: coin.changePercent24h,
+          onTap: () {
+            context.read<HomeViewModel>().selectCoin(coin);
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              isScrollControlled: true,
+              builder: (_) => CoinDetails(coin: coin),
+            );
+          },
+        );
+      },
     );
   }
 }

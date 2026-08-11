@@ -1,124 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:trading_advisor/core/models/coin_model.dart';
+import 'package:trading_advisor/services/coin_api_service.dart';
 
 class HomeViewModel extends ChangeNotifier {
+  final CoinApiService _api = CoinApiService();
+
   bool isLoading = false;
+  String? error;
 
-  final List<Coin> recommendedCoins = [
-    Coin(
-      symbol: 'BTC',
-      name: 'Bitcoin',
-      iconEmoji: '₿',
-      iconUrl:
-          'https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/128/color/btc.png',
-      currentPrice: 62150.32,
-      changePercent24h: 2.14,
-      predictedPrice: 68500.00,
-      targetDate: DateTime.now().add(const Duration(days: 10)),
-      confidenceScore: 78,
-      trend: CoinTrend.bullish,
-      suggestedHoldingDays: 10,
-      suggestedInvestmentPercent: 15,
-      entryZoneLow: 61500,
-      entryZoneHigh: 62800,
-      exitTarget: 68500,
-      invalidationLevel: 58900,
-    ),
-    Coin(
-      symbol: 'ETH',
-      name: 'Ethereum',
-      iconEmoji: 'Ξ',
-      iconUrl:
-          'https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/128/color/eth.png',
+  /// Full market list (market-cap order, as returned by the API) — feeds
+  /// the "Market" section.
+  List<Coin> marketCoins = [];
 
-      currentPrice: 3420.10,
-      changePercent24h: -1.42,
-      predictedPrice: 3180.00,
-      targetDate: DateTime.now().add(const Duration(days: 6)),
-      confidenceScore: 64,
-      trend: CoinTrend.bearish,
-      suggestedHoldingDays: 6,
-      suggestedInvestmentPercent: 8,
-      entryZoneLow: 3450,
-      entryZoneHigh: 3520,
-      exitTarget: 3180,
-      invalidationLevel: 3600,
-    ),
-    Coin(
-      symbol: 'SOL',
-      name: 'Solana',
-      iconEmoji: '◎',
-      iconUrl:
-          'https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/128/color/sol.png',
-
-      currentPrice: 148.72,
-      changePercent24h: 5.63,
-      predictedPrice: 172.00,
-      targetDate: DateTime.now().add(const Duration(days: 14)),
-      confidenceScore: 71,
-      trend: CoinTrend.bullish,
-      suggestedHoldingDays: 14,
-      suggestedInvestmentPercent: 10,
-      entryZoneLow: 144,
-      entryZoneHigh: 150,
-      exitTarget: 172,
-      invalidationLevel: 132,
-    ),
-    Coin(
-      symbol: 'ADA',
-      name: 'Cardano',
-      iconEmoji: '₳',
-      iconUrl:
-          'https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/128/color/ada.png',
-
-      currentPrice: 0.412,
-      changePercent24h: 0.85,
-      predictedPrice: 0.445,
-      targetDate: DateTime.now().add(const Duration(days: 21)),
-      confidenceScore: 55,
-      trend: CoinTrend.neutral,
-      suggestedHoldingDays: 21,
-      suggestedInvestmentPercent: 5,
-      entryZoneLow: 0.40,
-      entryZoneHigh: 0.42,
-      exitTarget: 0.445,
-      invalidationLevel: 0.375,
-    ),
-    Coin(
-      symbol: 'DOGE',
-      name: 'Dogecoin',
-      iconEmoji: 'Ð',
-      iconUrl:
-          'https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/128/color/doge.png',
-
-      currentPrice: 0.1284,
-      changePercent24h: 8.92,
-      predictedPrice: 0.148,
-      targetDate: DateTime.now().add(const Duration(days: 4)),
-      confidenceScore: 42,
-      trend: CoinTrend.bullish,
-      suggestedHoldingDays: 4,
-      suggestedInvestmentPercent: 3,
-      entryZoneLow: 0.122,
-      entryZoneHigh: 0.130,
-      exitTarget: 0.148,
-      invalidationLevel: 0.112,
-    ),
-  ];
+  /// Top movers by absolute 24h change — feeds the "Recommended Coins" strip.
+  List<Coin> recommendedCoins = [];
 
   Coin? _selectedCoin;
   Coin? get selectedCoin => _selectedCoin;
+
+  HomeViewModel() {
+    _loadCoins();
+  }
 
   void selectCoin(Coin coin) {
     _selectedCoin = coin;
     notifyListeners();
   }
 
-  Future<void> refresh() async {
+  Future<void> _loadCoins() async {
     isLoading = true;
+    error = null;
     notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 600)); // simulate fetch
+    try {
+      final coins = await _api.fetchMarketCoins(perPage: 50);
+      marketCoins = coins;
+      recommendedCoins = (List.of(coins)..sort(
+            (a, b) => b.changePercent24h.abs().compareTo(
+              a.changePercent24h.abs(),
+            ),
+          ))
+          .take(8)
+          .toList();
+    } catch (e) {
+      error = 'Could not load market data: $e';
+    }
     isLoading = false;
     notifyListeners();
   }
+
+  Future<void> refresh() => _loadCoins();
 }

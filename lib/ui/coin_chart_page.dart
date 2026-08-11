@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:k_chart_multiple/entity/trade_mark.dart';
+import 'package:k_chart_multiple/flutter_k_chart.dart';
 import 'package:trading_advisor/core/models/coin_model.dart';
 import 'package:trading_advisor/core/theme/app_colors/app_colors.dart';
 import 'package:trading_advisor/core/constants/sizes/sizes.dart';
+import 'package:trading_advisor/core/utils/trade_marks/trade_marks_builder.dart';
 import 'package:trading_advisor/data/dummy/kline_data_generator.dart';
+import 'package:trading_advisor/services/coin_api_service.dart';
 
 class CoinChartPage extends StatefulWidget {
   final Coin coin;
@@ -13,8 +17,12 @@ class CoinChartPage extends StatefulWidget {
 }
 
 class _CoinChartPageState extends State<CoinChartPage> {
-  late List<KLineEntity> _datas;
-  late List<TradeMark> _tradeMarks;
+  final CoinApiService _api = CoinApiService();
+
+  List<KLineEntity> _datas = [];
+  List<TradeMark> _tradeMarks = [];
+  bool _isLoading = true;
+  bool _isFallbackData = false;
   MainState _mainState = MainState.MA;
   final List<SecondaryState> _secondaryStates = [
     SecondaryState.MACD,
@@ -27,8 +35,31 @@ class _CoinChartPageState extends State<CoinChartPage> {
   @override
   void initState() {
     super.initState();
-    _datas = KlineDataGenerator.generate(widget.coin);
-    _tradeMarks = KlineDataGenerator.tradeMarks(widget.coin, _datas);
+    _loadChart();
+  }
+
+  Future<void> _loadChart() async {
+    setState(() => _isLoading = true);
+
+    List<KLineEntity> datas;
+    bool isFallback;
+    try {
+      datas = await _api.fetchChartCandles(widget.coin.id);
+      isFallback = false;
+    } catch (_) {
+      // CoinGecko rate-limited/unreachable — fall back to synthetic candles
+      // so the chart is never just a dead error screen.
+      datas = KlineDataGenerator.generate(widget.coin);
+      isFallback = true;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _datas = datas;
+      _tradeMarks = TradeMarksBuilder.build(widget.coin, datas);
+      _isFallbackData = isFallback;
+      _isLoading = false;
+    });
   }
 
   @override
@@ -60,56 +91,106 @@ class _CoinChartPageState extends State<CoinChartPage> {
             ),
           ],
         ),
-      ),
-      body: Column(
-        children: [
-          _PriceHeader(
-            coin: coin,
-            gain: gain,
-            trendColor: trendColor,
-            liveProbability: _liveUpProbability,
+        actions: [
+          IconButton(
+            icon: _isLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh_rounded),
+            onPressed: _isLoading ? null : _loadChart,
+            tooltip: 'Refresh chart',
           ),
-          const SizedBox(height: AppSizes.sm),
+        ],
+      ),
+      body: _isLoading && _datas.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                _PriceHeader(
+                  coin: coin,
+                  gain: gain,
+                  trendColor: trendColor,
+                  liveProbability: _liveUpProbability,
+                ),
+                if (_isFallbackData) const _FallbackDataBanner(),
+                const SizedBox(height: AppSizes.sm),
+                Expanded(
+                  child: KChartWidget(
+                    _datas,
+                    ChartStyle(),
+                    ChartColors(),
+                    isTrendLine: false,
+                    mainState: _mainState,
+                    secondaryStates: _secondaryStates,
+                    volHidden: _volHidden,
+                    showNowPrice: true,
+                    fixedLength: coin.currentPrice < 1 ? 4 : 2,
+                    timeFormat: TimeFormat.YEAR_MONTH_DAY_WITH_HOUR,
+                    tradeMarks: _showTradeMarks ? _tradeMarks : const [],
+                    showTradeMarks: _showTradeMarks,
+                    onLoadMore: (isRightEdge) {
+                      // hook up pagination / older candle fetch here later
+                    },
+                    onMainGoingUp: (prob) {
+                      setState(() => _liveUpProbability = prob);
+                    },
+                  ),
+                ),
+                _IndicatorControls(
+                  mainState: _mainState,
+                  secondaryStates: _secondaryStates,
+                  volHidden: _volHidden,
+                  showTradeMarks: _showTradeMarks,
+                  onMainStateChanged: (state) =>
+                      setState(() => _mainState = state),
+                  onSecondaryToggle: (state) {
+                    setState(() {
+                      _secondaryStates.contains(state)
+                          ? _secondaryStates.remove(state)
+                          : _secondaryStates.add(state);
+                    });
+                  },
+                  onVolToggle: () => setState(() => _volHidden = !_volHidden),
+                  onTradeMarksToggle: () =>
+                      setState(() => _showTradeMarks = !_showTradeMarks),
+                ),
+                _RecommendationFooter(coin: coin, trendColor: trendColor),
+              ],
+            ),
+    );
+  }
+}
+
+// ============== Fallback data banner ==============
+
+class _FallbackDataBanner extends StatelessWidget {
+  const _FallbackDataBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(AppSizes.md, AppSizes.sm, AppSizes.md, 0),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.sm,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.wifi_off_rounded, size: 14, color: AppColors.warning),
+          const SizedBox(width: 6),
           Expanded(
-            child: KChartWidget(
-              _datas,
-              ChartStyle(),
-              ChartColors(),
-              isTrendLine: false,
-              mainState: _mainState,
-              secondaryStates: _secondaryStates,
-              volHidden: _volHidden,
-              showNowPrice: true,
-              fixedLength: coin.currentPrice < 1 ? 4 : 2,
-              timeFormat: TimeFormat.YEAR_MONTH_DAY_WITH_HOUR,
-              tradeMarks: _showTradeMarks ? _tradeMarks : const [],
-              showTradeMarks: _showTradeMarks,
-              onLoadMore: (isRightEdge) {
-                // hook up pagination / older candle fetch here later
-              },
-              onMainGoingUp: (prob) {
-                setState(() => _liveUpProbability = prob);
-              },
+            child: Text(
+              'Live chart data unavailable — showing demo candles.',
+              style: TextStyle(fontSize: 11, color: AppColors.warning),
             ),
           ),
-          _IndicatorControls(
-            mainState: _mainState,
-            secondaryStates: _secondaryStates,
-            volHidden: _volHidden,
-            showTradeMarks: _showTradeMarks,
-            onMainStateChanged: (state) => setState(() => _mainState = state),
-            onSecondaryToggle: (state) {
-              setState(() {
-                _secondaryStates.contains(state)
-                    ? _secondaryStates.remove(state)
-                    : _secondaryStates.add(state);
-              });
-            },
-            onVolToggle: () => setState(() => _volHidden = !_volHidden),
-            onTradeMarksToggle: () =>
-                setState(() => _showTradeMarks = !_showTradeMarks),
-          ),
-          _RecommendationFooter(coin: coin, trendColor: trendColor),
         ],
       ),
     );
