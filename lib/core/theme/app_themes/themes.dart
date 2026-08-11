@@ -1,6 +1,7 @@
 // lib/core/theme/app_themes/themes.dart
 
 import 'package:flutter/material.dart';
+import 'package:trading_advisor/core/constants/sizes/sizes.dart';
 import 'package:trading_advisor/core/theme/app_colors/app_colors.dart';
 import 'package:trading_advisor/core/theme/custom_theme/appbar_theme.dart';
 import 'package:trading_advisor/core/theme/custom_theme/bottom_sheet_theme.dart';
@@ -38,9 +39,14 @@ class AppTheme {
       surface: AppColors.white,
     ),
     cardTheme: CardThemeData(
-      color: AppColors.white,
-      elevation: 2,
+      color: AppColors.cardSurface,
+      elevation: AppSizes.cardElevation,
+      margin: EdgeInsets.zero,
       shadowColor: AppColors.softGrey,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.cardRadiusMd),
+        side: const BorderSide(color: AppColors.cardBorder, width: 1),
+      ),
     ),
 
     tabBarTheme: TabBarThemeData(
@@ -55,7 +61,7 @@ class AppTheme {
     fontFamily: 'Poppins',
     brightness: Brightness.dark,
     primaryColor: AppColors.primary,
-    scaffoldBackgroundColor: AppColors.textPrimary,
+    scaffoldBackgroundColor: AppColors.darkBackground,
     textTheme: AppTextTheme.darkTextTheme,
     appBarTheme: AppAppBarTheme.darkAppBarTheme,
     checkboxTheme: AppCheckboxTheme.darkCheckboxTheme,
@@ -70,12 +76,17 @@ class AppTheme {
       error: AppColors.error,
       onPrimary: AppColors.white,
       onSecondary: AppColors.black,
-      surface: Color(0xFF2D3748),
+      surface: AppColors.darkSurface,
     ),
-    cardTheme: const CardThemeData(
-      color: Color(0xFF2D3748),
-      elevation: 2,
-      shadowColor: AppColors.black,
+    cardTheme: CardThemeData(
+      color: AppColors.darkSurface,
+      elevation: AppSizes.cardElevation,
+      margin: EdgeInsets.zero,
+      shadowColor: AppColors.fullBlack,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.cardRadiusMd),
+        side: const BorderSide(color: AppColors.darkSurfaceBorder, width: 1),
+      ),
     ),
     tabBarTheme: const TabBarThemeData(
       labelColor: AppColors.primary,
