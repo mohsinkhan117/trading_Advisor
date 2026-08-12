@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:trading_advisor/core/constants/sizes/sizes.dart';
 import 'package:trading_advisor/core/theme/app_colors/app_colors.dart';
+import 'package:trading_advisor/core/theme/context_theme_ext.dart';
 import 'package:trading_advisor/core/utils/formatting_utils/formatting_utils.dart';
 
 /// A compact, borderless row for showing a symbol's price and its change.
@@ -58,7 +59,7 @@ class PriceChangeCard extends StatelessWidget {
                     color: changeColor,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, color: AppColors.textWhite, size: 14),
+                  child: Icon(icon, color: context.colors.onPrimary, size: 14),
                 ),
                 const SizedBox(width: AppSizes.sm),
                 Expanded(
@@ -67,8 +68,7 @@ class PriceChangeCard extends StatelessWidget {
                     children: [
                       Text(
                         symbol,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
+                        style: context.textStyles.bodyMedium?.copyWith(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                         ),
@@ -76,8 +76,7 @@ class PriceChangeCard extends StatelessWidget {
                       if (name != null)
                         Text(
                           name!,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          style: context.textStyles.bodySmall?.copyWith(
                             fontSize: 11,
                           ),
                           maxLines: 1,
@@ -91,8 +90,7 @@ class PriceChangeCard extends StatelessWidget {
                   children: [
                     Text(
                       AppFormatUtils.formatCurrency(price),
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
+                      style: context.textStyles.bodyMedium?.copyWith(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                       ),
@@ -111,11 +109,7 @@ class PriceChangeCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSizes.sm),
-            const Divider(
-              height: 1,
-              thickness: 0.6,
-              color: AppColors.cardBorder,
-            ),
+            Divider(height: 1, thickness: 0.6, color: AppColors.borderPrimary),
           ],
         ),
       ),

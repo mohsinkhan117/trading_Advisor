@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:trading_advisor/core/models/coin_model.dart';
 import 'package:trading_advisor/core/theme/app_colors/app_colors.dart';
+import 'package:trading_advisor/core/theme/context_theme_ext.dart';
 import 'package:trading_advisor/core/constants/sizes/sizes.dart';
 import 'package:trading_advisor/ui/coin_chart_page.dart';
 import 'package:trading_advisor/ui/homepage_view_model.dart';
@@ -19,7 +20,7 @@ class Homepage extends StatelessWidget {
 
     return Scaffold(
       body: RefreshIndicator(
-        color: AppColors.primary,
+        color: context.colors.primary,
         onRefresh: () => context.read<HomeViewModel>().refresh(),
         child: isFirstLoad
             ? const Center(child: CircularProgressIndicator())
@@ -31,6 +32,7 @@ class Homepage extends StatelessWidget {
             : ListView(
                 padding: const EdgeInsets.symmetric(vertical: AppSizes.md),
                 children: const [
+                  SizedBox(height: AppSizes.sm),
                   _SectionHeader(title: 'Recommended Coins'),
                   SizedBox(height: AppSizes.sm),
                   RecommendedCoins(),
@@ -59,16 +61,16 @@ class _ErrorState extends StatelessWidget {
       padding: const EdgeInsets.all(AppSizes.lg),
       children: [
         const SizedBox(height: 80),
-        const Icon(
+        Icon(
           Icons.cloud_off_rounded,
           size: 40,
-          color: AppColors.textMuted,
+          color: context.colors.onSurfaceVariant.withValues(alpha: 0.7),
         ),
         const SizedBox(height: AppSizes.sm),
         Text(
           message,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.textSecondary),
+          style: TextStyle(color: context.colors.onSurfaceVariant),
         ),
         const SizedBox(height: AppSizes.md),
         Center(
@@ -151,8 +153,6 @@ class RecommendedCoin extends StatelessWidget {
         child: Container(
           width: 176,
           decoration: BoxDecoration(
-            color: AppColors.cardSurface,
-            border: Border.all(color: AppColors.cardBorder),
             borderRadius: BorderRadius.all(Radius.circular(18)),
           ),
           child: Column(
@@ -177,8 +177,8 @@ class RecommendedCoin extends StatelessWidget {
                         Expanded(
                           child: Text(
                             coin.symbol,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
+                            style: TextStyle(
+                              color: context.colors.onSurface,
                               fontWeight: FontWeight.w700,
                               fontSize: 12,
                             ),
@@ -221,8 +221,8 @@ class RecommendedCoin extends StatelessWidget {
                     // ── Current price ──────────────────────────
                     Text(
                       '\$${coin.currentPrice.toStringAsFixed(coin.currentPrice < 1 ? 4 : 2)}',
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
+                      style: TextStyle(
+                        color: context.colors.onSurface,
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                         height: 1.1,
@@ -255,10 +255,12 @@ class RecommendedCoin extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'AI CONFIDENCE',
                           style: TextStyle(
-                            color: AppColors.textMuted,
+                            color: context.colors.onSurfaceVariant.withValues(
+                              alpha: 0.7,
+                            ),
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.4,
@@ -280,7 +282,7 @@ class RecommendedCoin extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: confidence / 100,
                         minHeight: 5,
-                        backgroundColor: AppColors.softGrey,
+                        backgroundColor: context.colors.surfaceContainerHighest,
                         valueColor: AlwaysStoppedAnimation(
                           _confidenceColor(confidence),
                         ),
@@ -291,16 +293,16 @@ class RecommendedCoin extends StatelessWidget {
                     // ── Timeframe ────────────────────────────────
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.schedule_rounded,
                           size: 12,
-                          color: AppColors.textSecondary,
+                          color: context.colors.onSurfaceVariant,
                         ),
                         const SizedBox(width: 3),
                         Text(
                           'by ${_formatDate(coin.targetDate)}',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          style: TextStyle(
+                            color: context.colors.onSurfaceVariant,
                             fontSize: 11,
                           ),
                         ),
@@ -352,9 +354,9 @@ class CoinDetails extends StatelessWidget {
       expand: false,
       builder: (context, scrollController) {
         return Container(
-          decoration: const BoxDecoration(
-            color: AppColors.cardSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          decoration: BoxDecoration(
+            color: context.colors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: ListView(
             controller: scrollController,
@@ -372,7 +374,7 @@ class CoinDetails extends StatelessWidget {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: AppSizes.md),
                   decoration: BoxDecoration(
-                    color: AppColors.cardBorder,
+                    color: context.colors.outlineVariant,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -389,16 +391,16 @@ class CoinDetails extends StatelessWidget {
                       children: [
                         Text(
                           coin.name,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
+                          style: TextStyle(
+                            color: context.colors.onSurface,
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         Text(
                           coin.symbol,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          style: TextStyle(
+                            color: context.colors.onSurfaceVariant,
                             fontSize: 12,
                           ),
                         ),
@@ -416,8 +418,10 @@ class CoinDetails extends StatelessWidget {
                     ),
                     child: Text(
                       isUp ? 'BULLISH' : 'BEARISH',
-                      style: const TextStyle(
-                        color: AppColors.textWhite,
+                      style: TextStyle(
+                        // trendColor is primary (bullish) or error (bearish);
+                        // onPrimary/onError are both white in this theme.
+                        color: context.colors.onPrimary,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.3,
@@ -432,25 +436,29 @@ class CoinDetails extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSizes.md),
                 decoration: BoxDecoration(
-                  color: AppColors.cardBackground,
+                  color: context.colors.surface,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
                   children: [
                     Expanded(
                       child: _priceBlock(
+                        context,
                         'Current',
                         coin.currentPrice,
-                        AppColors.textPrimary,
+                        context.colors.onSurface,
                       ),
                     ),
                     Icon(
                       Icons.arrow_forward_rounded,
-                      color: AppColors.textMuted,
+                      color: context.colors.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
                       size: 18,
                     ),
                     Expanded(
                       child: _priceBlock(
+                        context,
                         'AI Target',
                         coin.predictedPrice,
                         trendColor,
@@ -466,7 +474,7 @@ class CoinDetails extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSizes.md),
                 decoration: BoxDecoration(
-                  color: AppColors.cardBackground,
+                  color: context.colors.surface,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -474,16 +482,16 @@ class CoinDetails extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.psychology_rounded,
                           size: 16,
-                          color: AppColors.primary,
+                          color: context.colors.primary,
                         ),
                         const SizedBox(width: 6),
-                        const Text(
+                        Text(
                           'AI ANALYSIS',
                           style: TextStyle(
-                            color: AppColors.textSecondary,
+                            color: context.colors.onSurfaceVariant,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.5,
@@ -495,10 +503,10 @@ class CoinDetails extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Confidence this target is reached',
                           style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: context.colors.onSurface,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -519,7 +527,7 @@ class CoinDetails extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: confidence / 100,
                         minHeight: 6,
-                        backgroundColor: AppColors.softGrey,
+                        backgroundColor: context.colors.surfaceContainerHighest,
                         valueColor: AlwaysStoppedAnimation(
                           _confidenceColor(confidence),
                         ),
@@ -530,6 +538,7 @@ class CoinDetails extends StatelessWidget {
                       children: [
                         Expanded(
                           child: _aiStatChip(
+                            context: context,
                             icon: Icons.speed_rounded,
                             label: 'Signal',
                             value: signalStrength.label,
@@ -539,6 +548,7 @@ class CoinDetails extends StatelessWidget {
                         const SizedBox(width: AppSizes.xs),
                         Expanded(
                           child: _aiStatChip(
+                            context: context,
                             icon: Icons.warning_amber_rounded,
                             label: 'Risk',
                             value: riskLevel.label,
@@ -548,6 +558,7 @@ class CoinDetails extends StatelessWidget {
                         const SizedBox(width: AppSizes.xs),
                         Expanded(
                           child: _aiStatChip(
+                            context: context,
                             icon: Icons.timer_outlined,
                             label: 'Horizon',
                             value: '${coin.suggestedHoldingDays}d',
@@ -565,16 +576,16 @@ class CoinDetails extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSizes.md),
                 decoration: BoxDecoration(
-                  color: AppColors.cardBackground,
+                  color: context.colors.surface,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'TRADE PLAN',
                       style: TextStyle(
-                        color: AppColors.textSecondary,
+                        color: context.colors.onSurfaceVariant,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
@@ -585,14 +596,16 @@ class CoinDetails extends StatelessWidget {
                       children: [
                         Expanded(
                           child: _tradeStat(
+                            context,
                             'Entry zone',
                             '\$${coin.entryZoneLow.toStringAsFixed(2)} – \$${coin.entryZoneHigh.toStringAsFixed(2)}',
-                            AppColors.textPrimary,
+                            context.colors.onSurface,
                           ),
                         ),
                         const SizedBox(width: AppSizes.sm),
                         Expanded(
                           child: _tradeStat(
+                            context,
                             'Exit target',
                             '\$${coin.exitTarget.toStringAsFixed(2)}',
                             AppColors.bullish,
@@ -605,6 +618,7 @@ class CoinDetails extends StatelessWidget {
                       children: [
                         Expanded(
                           child: _tradeStat(
+                            context,
                             'Invalidation',
                             '\$${coin.invalidationLevel.toStringAsFixed(2)}',
                             AppColors.bearish,
@@ -613,9 +627,10 @@ class CoinDetails extends StatelessWidget {
                         const SizedBox(width: AppSizes.sm),
                         Expanded(
                           child: _tradeStat(
+                            context,
                             'Allocation',
                             '${coin.suggestedInvestmentPercent.toStringAsFixed(0)}% of portfolio',
-                            AppColors.textPrimary,
+                            context.colors.onSurface,
                           ),
                         ),
                       ],
@@ -650,23 +665,26 @@ class CoinDetails extends StatelessWidget {
                         ),
                       );
                     },
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.show_chart,
                       size: 18,
-                      color: AppColors.textWhite,
+                      color: context.colors.onPrimary,
                     ),
-                    label: const Text(
+                    label: Text(
                       'View Chart',
-                      style: TextStyle(color: AppColors.textWhite),
+                      style: TextStyle(color: context.colors.onPrimary),
                     ),
                   ),
                 ),
               ),
               const SizedBox(height: AppSizes.sm),
-              const Text(
+              Text(
                 'AI-generated signal, not financial advice. Not auto-executed.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+                style: TextStyle(
+                  color: context.colors.onSurfaceVariant.withValues(alpha: 0.7),
+                  fontSize: 11,
+                ),
               ),
             ],
           ),
@@ -676,6 +694,7 @@ class CoinDetails extends StatelessWidget {
   }
 
   Widget _priceBlock(
+    BuildContext context,
     String label,
     double price,
     Color valueColor, {
@@ -688,7 +707,10 @@ class CoinDetails extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+          style: TextStyle(
+            color: context.colors.onSurfaceVariant,
+            fontSize: 11,
+          ),
         ),
         const SizedBox(height: 2),
         Text(
@@ -704,6 +726,7 @@ class CoinDetails extends StatelessWidget {
   }
 
   Widget _aiStatChip({
+    required BuildContext context,
     required IconData icon,
     required String label,
     required String value,
@@ -729,18 +752,26 @@ class CoinDetails extends StatelessWidget {
           ),
           Text(
             label,
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 9),
+            style: TextStyle(
+              color: context.colors.onSurfaceVariant.withValues(alpha: 0.7),
+              fontSize: 9,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _tradeStat(String label, String value, Color valueColor) {
+  Widget _tradeStat(
+    BuildContext context,
+    String label,
+    String value,
+    Color valueColor,
+  ) {
     return Container(
       padding: const EdgeInsets.all(AppSizes.sm),
       decoration: BoxDecoration(
-        color: AppColors.cardSurface,
+        color: context.colors.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -748,8 +779,8 @@ class CoinDetails extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
+            style: TextStyle(
+              color: context.colors.onSurfaceVariant,
               fontSize: 10,
             ),
           ),
@@ -796,50 +827,6 @@ class _Tier {
   const _Tier(this.label, this.color);
 }
 
-Widget _statBlock(String label, String value, {Color? valueColor}) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        label,
-        style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
-      ),
-      const SizedBox(height: 2),
-      Text(
-        value,
-        style: TextStyle(
-          color: valueColor ?? AppColors.textPrimary,
-          fontSize: 15,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    ],
-  );
-}
-
-Widget _detailRow(String label, String value) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
 class CoinAvatar extends StatelessWidget {
   final Coin coin;
   final double radius;
@@ -850,7 +837,7 @@ class CoinAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     return CircleAvatar(
       radius: radius,
-      backgroundColor: AppColors.iconAvatarBackground,
+      backgroundColor: context.colors.surfaceContainerHighest,
       child: ClipOval(
         child: Image.network(
           coin.iconUrl,
@@ -864,7 +851,7 @@ class CoinAvatar extends StatelessWidget {
               height: radius,
               child: CircularProgressIndicator(
                 strokeWidth: 1.5,
-                color: AppColors.primary,
+                color: context.colors.primary,
               ),
             );
           },

@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:trading_advisor/core/models/search_model.dart';
 import 'package:trading_advisor/core/theme/app_colors/app_colors.dart';
+import 'package:trading_advisor/core/theme/context_theme_ext.dart';
 import 'package:trading_advisor/core/constants/sizes/sizes.dart';
 import 'package:trading_advisor/services/coin_api_service.dart';
 import 'package:trading_advisor/ui/coin_chart_page.dart';
@@ -131,7 +132,7 @@ class _CoinSearchBarState extends State<CoinSearchBar> {
           Container(
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.cardBackground,
+              // color: context.colors.surface,
               borderRadius: BorderRadius.circular(_panelOpen ? 14 : 22)
                   .copyWith(
                     bottomLeft: _panelOpen
@@ -149,8 +150,8 @@ class _CoinSearchBarState extends State<CoinSearchBar> {
                   Icons.search_rounded,
                   size: 19,
                   color: _focusNode.hasFocus
-                      ? AppColors.primary
-                      : AppColors.textMuted,
+                      ? context.colors.primary
+                      : AppColors.borderPrimary,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -159,37 +160,52 @@ class _CoinSearchBarState extends State<CoinSearchBar> {
                     focusNode: _focusNode,
                     onChanged: _onChanged,
                     onTap: () {
-                      // Re-open the panel if refocusing a field with existing results.
                       if (_results.isNotEmpty ||
                           _controller.text.trim().isNotEmpty) {
                         setState(() => _panelOpen = true);
                       }
                     },
-                    style: const TextStyle(
+                    style: context.textStyles.bodyMedium?.copyWith(
                       fontSize: 13,
-                      color: AppColors.textPrimary,
                     ),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Search coins, e.g. Bitcoin or SOL',
-                      hintStyle: TextStyle(
+                      hintStyle: context.textStyles.bodyMedium?.copyWith(
                         fontSize: 13,
-                        color: AppColors.textMuted,
+                        color: AppColors
+                            .textMuted, // hint color — separate from border color
                       ),
-                      border: InputBorder.none,
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: BorderSide(
+                          color: AppColors.borderPrimary,
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: BorderSide(
+                          color: context.colors.primary,
+                          width: 1.4,
+                        ),
+                      ),
                     ),
                   ),
                 ),
                 if (_isLoading || _isResolving)
-                  const Padding(
-                    padding: EdgeInsets.only(right: AppSizes.sm),
+                  Padding(
+                    padding: const EdgeInsets.only(right: AppSizes.sm),
                     child: SizedBox(
                       width: 15,
                       height: 15,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: AppColors.primary,
+                        color: context.colors.primary,
                       ),
                     ),
                   )
@@ -197,12 +213,12 @@ class _CoinSearchBarState extends State<CoinSearchBar> {
                   InkWell(
                     onTap: _clear,
                     borderRadius: BorderRadius.circular(20),
-                    child: const Padding(
-                      padding: EdgeInsets.all(AppSizes.xs),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSizes.xs),
                       child: Icon(
                         Icons.close_rounded,
                         size: 16,
-                        color: AppColors.textMuted,
+                        // color: context.colors.onSurfaceVariant,
                       ),
                     ),
                   )
@@ -230,9 +246,9 @@ class _CoinSearchBarState extends State<CoinSearchBar> {
     return Container(
       margin: const EdgeInsets.only(top: 2),
       constraints: const BoxConstraints(maxHeight: 320),
-      decoration: const BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(14)),
+      decoration: BoxDecoration(
+        // color: context.colors.surface,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
       ),
       child: _buildResultsContent(),
     );
@@ -247,7 +263,7 @@ class _CoinSearchBarState extends State<CoinSearchBar> {
       );
     }
     if (_isLoading && _results.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: 64,
         child: Center(
           child: SizedBox(
@@ -255,7 +271,7 @@ class _CoinSearchBarState extends State<CoinSearchBar> {
             height: 18,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: AppColors.primary,
+              color: context.colors.primary,
             ),
           ),
         ),
@@ -265,7 +281,7 @@ class _CoinSearchBarState extends State<CoinSearchBar> {
       return _panelMessage(
         Icons.search_off_rounded,
         'No coins found',
-        AppColors.textMuted,
+        context.colors.onSurfaceVariant,
       );
     }
 
@@ -274,11 +290,11 @@ class _CoinSearchBarState extends State<CoinSearchBar> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: _results.length,
-      separatorBuilder: (_, __) => Divider(
+      separatorBuilder: (_, _) => Divider(
         height: 1,
         thickness: 0.6,
         indent: 56,
-        color: AppColors.cardSurface,
+        color: context.colors.outlineVariant,
       ),
       itemBuilder: (context, index) => _ResultTile(
         result: _results[index],
@@ -329,20 +345,19 @@ class _ResultTile extends StatelessWidget {
                 width: 28,
                 height: 28,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (context, error, stackTrace) => Container(
                   width: 28,
                   height: 28,
-                  decoration: const BoxDecoration(
-                    color: AppColors.cardSurface,
+                  decoration: BoxDecoration(
+                    color: context.colors.surfaceContainerHighest,
                     shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: Text(
                       result.symbol.isNotEmpty ? result.symbol[0] : '?',
-                      style: const TextStyle(
+                      style: context.textStyles.bodySmall?.copyWith(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.textSecondary,
                       ),
                     ),
                   ),
@@ -358,18 +373,14 @@ class _ResultTile extends StatelessWidget {
                     result.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
+                    style: context.textStyles.bodyMedium?.copyWith(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   Text(
                     result.symbol.toUpperCase(),
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                    ),
+                    style: context.textStyles.bodySmall?.copyWith(fontSize: 11),
                   ),
                 ],
               ),
@@ -378,13 +389,12 @@ class _ResultTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.cardSurface,
+                  color: context.colors.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   '#${result.marketCapRank}',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: context.textStyles.bodySmall?.copyWith(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),

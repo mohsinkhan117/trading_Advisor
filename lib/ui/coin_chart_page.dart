@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:trading_advisor/core/models/coin_model.dart';
 import 'package:trading_advisor/core/theme/app_colors/app_colors.dart';
+import 'package:trading_advisor/core/theme/context_theme_ext.dart';
 import 'package:trading_advisor/core/constants/sizes/sizes.dart';
 import 'package:trading_advisor/services/coin_api_service.dart';
 import 'package:trading_chart_flutter/trading_chart_flutter.dart';
@@ -135,11 +136,8 @@ class _CoinChartPageState extends State<CoinChartPage> {
     final trendColor = AppColors.priceChangeColor(gain);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
         elevation: 0,
-        foregroundColor: AppColors.textPrimary,
         toolbarHeight: 48,
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -151,9 +149,9 @@ class _CoinChartPageState extends State<CoinChartPage> {
             const SizedBox(width: 5),
             Text(
               coin.name,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: AppColors.textSecondary,
+                color: context.colors.onSurfaceVariant,
               ),
             ),
           ],
@@ -238,12 +236,15 @@ class _CoinChartPageState extends State<CoinChartPage> {
         const SizedBox(height: AppSizes.sm),
         _TradePlanPanel(coin: coin),
         const SizedBox(height: AppSizes.xs),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: AppSizes.md),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
           child: Text(
             'AI-generated signal, not financial advice. Not auto-executed.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textMuted, fontSize: 10),
+            style: TextStyle(
+              color: context.colors.onSurfaceVariant.withValues(alpha: 0.7),
+              fontSize: 10,
+            ),
           ),
         ),
         const SizedBox(height: AppSizes.sm),
@@ -268,17 +269,17 @@ class _ChartErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.cloud_off_rounded,
               size: 36,
-              color: AppColors.textMuted,
+              color: context.colors.onSurfaceVariant.withValues(alpha: 0.7),
             ),
             const SizedBox(height: AppSizes.sm),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
+              style: TextStyle(
+                color: context.colors.onSurfaceVariant,
                 fontSize: 12,
               ),
             ),
@@ -323,8 +324,8 @@ class _PriceHeader extends StatelessWidget {
             child: Text(
               '\$${livePrice.toStringAsFixed(livePrice < 1 ? 4 : 2)}',
               key: ValueKey(livePrice),
-              style: const TextStyle(
-                color: AppColors.textPrimary,
+              style: TextStyle(
+                color: context.colors.onSurface,
                 fontSize: 21,
                 fontWeight: FontWeight.w700,
               ),
@@ -339,8 +340,10 @@ class _PriceHeader extends StatelessWidget {
             ),
             child: Text(
               '${gain >= 0 ? '+' : ''}${gain.toStringAsFixed(2)}%',
-              style: const TextStyle(
-                color: AppColors.textWhite,
+              style: TextStyle(
+                // trendColor is always primary (bullish) or error (bearish),
+                // and onPrimary/onError both resolve to white in this theme.
+                color: context.colors.onPrimary,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
@@ -437,7 +440,7 @@ class _AiParametersPanel extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: AppSizes.md),
       padding: const EdgeInsets.all(AppSizes.sm),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -445,16 +448,16 @@ class _AiParametersPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.psychology_rounded,
                 size: 13,
-                color: AppColors.primary,
+                color: context.colors.primary,
               ),
               const SizedBox(width: 5),
-              const Text(
+              Text(
                 'AI ANALYSIS',
                 style: TextStyle(
-                  color: AppColors.textSecondary,
+                  color: context.colors.onSurfaceVariant,
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.4,
@@ -466,10 +469,10 @@ class _AiParametersPanel extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Confidence in target',
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: context.colors.onSurface,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -490,7 +493,7 @@ class _AiParametersPanel extends StatelessWidget {
             child: LinearProgressIndicator(
               value: confidence / 100,
               minHeight: 5,
-              backgroundColor: AppColors.softGrey,
+              backgroundColor: context.colors.surfaceContainerHighest,
               valueColor: AlwaysStoppedAnimation(_confidenceColor(confidence)),
             ),
           ),
@@ -499,6 +502,7 @@ class _AiParametersPanel extends StatelessWidget {
             children: [
               Expanded(
                 child: _statChip(
+                  context,
                   Icons.speed_rounded,
                   'Signal',
                   signal.label,
@@ -508,6 +512,7 @@ class _AiParametersPanel extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: _statChip(
+                  context,
                   Icons.warning_amber_rounded,
                   'Risk',
                   risk.label,
@@ -517,6 +522,7 @@ class _AiParametersPanel extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: _statChip(
+                  context,
                   Icons.timer_outlined,
                   'Horizon',
                   '${coin.suggestedHoldingDays}d',
@@ -526,6 +532,7 @@ class _AiParametersPanel extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: _statChip(
+                  context,
                   distanceToTargetPercent >= 0
                       ? Icons.trending_up_rounded
                       : Icons.trending_down_rounded,
@@ -541,7 +548,13 @@ class _AiParametersPanel extends StatelessWidget {
     );
   }
 
-  Widget _statChip(IconData icon, String label, String value, Color color) {
+  Widget _statChip(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 3),
       decoration: BoxDecoration(
@@ -562,7 +575,10 @@ class _AiParametersPanel extends StatelessWidget {
           ),
           Text(
             label,
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 8),
+            style: TextStyle(
+              color: context.colors.onSurfaceVariant.withValues(alpha: 0.7),
+              fontSize: 8,
+            ),
           ),
         ],
       ),
@@ -600,16 +616,16 @@ class _TradePlanPanel extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: AppSizes.md),
       padding: const EdgeInsets.all(AppSizes.sm),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'TRADE PLAN',
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: context.colors.onSurfaceVariant,
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.4,
@@ -620,14 +636,16 @@ class _TradePlanPanel extends StatelessWidget {
             children: [
               Expanded(
                 child: _tile(
+                  context,
                   'Entry zone',
                   '\$${coin.entryZoneLow.toStringAsFixed(2)}–\$${coin.entryZoneHigh.toStringAsFixed(2)}',
-                  AppColors.textPrimary,
+                  context.colors.onSurface,
                 ),
               ),
               const SizedBox(width: AppSizes.xs),
               Expanded(
                 child: _tile(
+                  context,
                   'Exit target',
                   '\$${coin.exitTarget.toStringAsFixed(2)}',
                   AppColors.bullish,
@@ -640,6 +658,7 @@ class _TradePlanPanel extends StatelessWidget {
             children: [
               Expanded(
                 child: _tile(
+                  context,
                   'Invalidation',
                   '\$${coin.invalidationLevel.toStringAsFixed(2)}',
                   AppColors.bearish,
@@ -648,9 +667,10 @@ class _TradePlanPanel extends StatelessWidget {
               const SizedBox(width: AppSizes.xs),
               Expanded(
                 child: _tile(
+                  context,
                   'Allocation',
                   '${coin.suggestedInvestmentPercent.toStringAsFixed(0)}% of portfolio',
-                  AppColors.textPrimary,
+                  context.colors.onSurface,
                 ),
               ),
             ],
@@ -660,11 +680,11 @@ class _TradePlanPanel extends StatelessWidget {
     );
   }
 
-  Widget _tile(String label, String value, Color valueColor) {
+  Widget _tile(BuildContext context, String label, String value, Color valueColor) {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: AppColors.cardSurface,
+        color: context.colors.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -672,7 +692,10 @@ class _TradePlanPanel extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 9),
+            style: TextStyle(
+              color: context.colors.onSurfaceVariant,
+              fontSize: 9,
+            ),
           ),
           const SizedBox(height: 1),
           Text(
@@ -720,9 +743,9 @@ class _TradeActionBar extends StatelessWidget {
         AppSizes.md,
         AppSizes.xs + MediaQuery.of(context).padding.bottom,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.cardSurface,
-        boxShadow: [
+      decoration: BoxDecoration(
+        color: context.colors.surface,
+        boxShadow: const [
           BoxShadow(
             color: Color(0x1A000000),
             blurRadius: 10,
@@ -737,7 +760,7 @@ class _TradeActionBar extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
-              color: AppColors.cardBackground,
+              color: context.colors.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -774,19 +797,19 @@ class _TradeActionBar extends StatelessWidget {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: AppColors.textPrimary,
+                      color: context.colors.onSurface,
                     ),
                     decoration: InputDecoration(
                       prefixText: '\$ ',
-                      prefixStyle: const TextStyle(
+                      prefixStyle: TextStyle(
                         fontSize: 13,
-                        color: AppColors.textSecondary,
+                        color: context.colors.onSurfaceVariant,
                       ),
                       isDense: true,
                       filled: true,
-                      fillColor: AppColors.cardBackground,
+                      fillColor: context.colors.surfaceContainerHighest,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 8,
@@ -808,7 +831,9 @@ class _TradeActionBar extends StatelessWidget {
                     onPressed: onSubmit,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: actionColor,
-                      foregroundColor: AppColors.textWhite,
+                      // actionColor is bullish (primary) or bearish (error);
+                      // onPrimary/onError are both white in this theme.
+                      foregroundColor: context.colors.onPrimary,
                       elevation: 0,
                       padding: EdgeInsets.zero,
                       shape: RoundedRectangleBorder(
@@ -852,7 +877,11 @@ class _TradeActionBar extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: active ? AppColors.textWhite : AppColors.textSecondary,
+            // color is bullish (primary) or bearish (error) — onPrimary and
+            // onError are both white in this theme.
+            color: active
+                ? context.colors.onPrimary
+                : context.colors.onSurfaceVariant,
             fontSize: 12,
             fontWeight: FontWeight.w700,
           ),
