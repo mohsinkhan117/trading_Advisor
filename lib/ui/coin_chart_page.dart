@@ -1,9 +1,13 @@
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:trading_advisor/core/models/coin_model.dart';
 import 'package:trading_advisor/core/theme/app_colors/app_colors.dart';
 import 'package:trading_advisor/core/constants/sizes/sizes.dart';
 import 'package:trading_advisor/services/coin_api_service.dart';
 import 'package:trading_chart_flutter/trading_chart_flutter.dart';
+
+enum TradeSide { buy, sell }
 
 class CoinChartPage extends StatefulWidget {
   final Coin coin;
@@ -15,11 +19,20 @@ class CoinChartPage extends StatefulWidget {
 
 class _CoinChartPageState extends State<CoinChartPage> {
   final CoinApiService _api = CoinApiService();
+  final ChartController _controller = ChartController();
+  final Random _rand = Random();
+  final TextEditingController _amountController = TextEditingController(
+    text: '100',
+  );
 
   List<Candle> _candles = [];
+  double? _livePrice;
+  Timer? _liveTimer;
   bool _isLoading = true;
   bool _showVolume = true;
+  bool _isLive = false;
   String? _error;
+  TradeSide _tradeSide = TradeSide.buy;
 
   @override
   void initState() {
@@ -27,10 +40,20 @@ class _CoinChartPageState extends State<CoinChartPage> {
     _loadChart();
   }
 
+  @override
+  void dispose() {
+    _liveTimer?.cancel();
+    _controller.dispose();
+    _amountController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadChart() async {
+    _liveTimer?.cancel();
     setState(() {
       _isLoading = true;
       _error = null;
+      _isLive = false;
     });
 
     try {
@@ -38,8 +61,13 @@ class _CoinChartPageState extends State<CoinChartPage> {
       if (!mounted) return;
       setState(() {
         _candles = candles;
+        _livePrice = candles.isNotEmpty
+            ? candles.last.close
+            : widget.coin.currentPrice;
         _isLoading = false;
       });
+      _controller.setData(candles);
+      _startLiveTicks();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -49,10 +77,61 @@ class _CoinChartPageState extends State<CoinChartPage> {
     }
   }
 
+  void _startLiveTicks() {
+    if (_candles.isEmpty) return;
+    setState(() => _isLive = true);
+
+    _liveTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted || _candles.isEmpty) return;
+
+      final last = _candles.last;
+      final volatility = last.close < 1 ? 0.006 : 0.0025;
+      final drift = (_rand.nextDouble() - 0.5) * volatility;
+      final newPrice = max(0.0001, last.close * (1 + drift));
+
+      final updated = Candle(
+        time: last.time,
+        open: last.open,
+        high: max(last.high, newPrice),
+        low: min(last.low, newPrice),
+        close: newPrice,
+        volume: last.volume,
+      );
+
+      setState(() {
+        _candles = [..._candles.sublist(0, _candles.length - 1), updated];
+        _livePrice = newPrice;
+      });
+      _controller.upsert(updated);
+    });
+  }
+
+  void _handleTrade(Coin coin, double livePrice) {
+    final amount = double.tryParse(_amountController.text) ?? 0;
+    final qty = amount > 0 ? amount / livePrice : 0;
+    final verb = _tradeSide == TradeSide.buy ? 'Bought' : 'Sold';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '$verb ${qty.toStringAsFixed(qty < 1 ? 6 : 4)} ${coin.symbol} '
+          '(\$${amount.toStringAsFixed(2)}) — dummy order, not executed',
+        ),
+        backgroundColor: _tradeSide == TradeSide.buy
+            ? AppColors.bullish
+            : AppColors.bearish,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final coin = widget.coin;
-    final gain = coin.expectedGainPercent;
+    final livePrice = _livePrice ?? coin.currentPrice;
+    final gain =
+        ((livePrice - coin.currentPrice) / coin.currentPrice * 100) +
+        coin.changePercent24h;
     final trendColor = AppColors.priceChangeColor(gain);
 
     return Scaffold(
@@ -61,18 +140,19 @@ class _CoinChartPageState extends State<CoinChartPage> {
         backgroundColor: AppColors.background,
         elevation: 0,
         foregroundColor: AppColors.textPrimary,
+        toolbarHeight: 48,
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               coin.symbol,
-              style: const TextStyle(fontWeight: FontWeight.w700),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
             Text(
               coin.name,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 color: AppColors.textSecondary,
               ),
             ),
@@ -80,19 +160,19 @@ class _CoinChartPageState extends State<CoinChartPage> {
         ),
         actions: [
           IconButton(
+            iconSize: 20,
             icon: Icon(
-              _showVolume
-                  ? Icons.bar_chart_rounded
-                  : Icons.bar_chart_outlined,
+              _showVolume ? Icons.bar_chart_rounded : Icons.bar_chart_outlined,
             ),
             onPressed: () => setState(() => _showVolume = !_showVolume),
             tooltip: _showVolume ? 'Hide volume' : 'Show volume',
           ),
           IconButton(
+            iconSize: 20,
             icon: _isLoading
                 ? const SizedBox(
-                    width: 18,
-                    height: 18,
+                    width: 16,
+                    height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.refresh_rounded),
@@ -101,11 +181,28 @@ class _CoinChartPageState extends State<CoinChartPage> {
           ),
         ],
       ),
-      body: _buildBody(coin, gain, trendColor),
+      body: _buildBody(coin, livePrice, gain, trendColor),
+      bottomNavigationBar:
+          (_isLoading && _candles.isEmpty) ||
+              (_error != null && _candles.isEmpty)
+          ? null
+          : _TradeActionBar(
+              coin: coin,
+              livePrice: livePrice,
+              side: _tradeSide,
+              amountController: _amountController,
+              onSideChanged: (side) => setState(() => _tradeSide = side),
+              onSubmit: () => _handleTrade(coin, livePrice),
+            ),
     );
   }
 
-  Widget _buildBody(Coin coin, double gain, Color trendColor) {
+  Widget _buildBody(
+    Coin coin,
+    double livePrice,
+    double gain,
+    Color trendColor,
+  ) {
     if (_isLoading && _candles.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -113,18 +210,43 @@ class _CoinChartPageState extends State<CoinChartPage> {
       return _ChartErrorState(message: _error!, onRetry: _loadChart);
     }
 
-    return Column(
+    return ListView(
+      padding: const EdgeInsets.only(bottom: AppSizes.sm),
       children: [
-        _PriceHeader(coin: coin, gain: gain, trendColor: trendColor),
-        const SizedBox(height: AppSizes.sm),
-        Expanded(
+        _PriceHeader(
+          livePrice: livePrice,
+          gain: gain,
+          trendColor: trendColor,
+          isLive: _isLive,
+        ),
+        const SizedBox(height: AppSizes.xs),
+        SizedBox(
+          height: 280,
           child: InteractiveTradingChart(
             candles: _candles,
+            controller: _controller,
             theme: ChartTheme.dark,
             showVolume: _showVolume,
           ),
         ),
-        _RecommendationFooter(coin: coin, trendColor: trendColor),
+        const SizedBox(height: AppSizes.sm),
+        _AiParametersPanel(
+          coin: coin,
+          livePrice: livePrice,
+          trendColor: trendColor,
+        ),
+        const SizedBox(height: AppSizes.sm),
+        _TradePlanPanel(coin: coin),
+        const SizedBox(height: AppSizes.xs),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppSizes.md),
+          child: Text(
+            'AI-generated signal, not financial advice. Not auto-executed.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.textMuted, fontSize: 10),
+          ),
+        ),
+        const SizedBox(height: AppSizes.sm),
       ],
     );
   }
@@ -148,14 +270,17 @@ class _ChartErrorState extends StatelessWidget {
           children: [
             const Icon(
               Icons.cloud_off_rounded,
-              size: 40,
+              size: 36,
               color: AppColors.textMuted,
             ),
             const SizedBox(height: AppSizes.sm),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
             ),
             const SizedBox(height: AppSizes.md),
             ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
@@ -169,14 +294,16 @@ class _ChartErrorState extends StatelessWidget {
 // ============== Price header ==============
 
 class _PriceHeader extends StatelessWidget {
-  final Coin coin;
+  final double livePrice;
   final double gain;
   final Color trendColor;
+  final bool isLive;
 
   const _PriceHeader({
-    required this.coin,
+    required this.livePrice,
     required this.gain,
     required this.trendColor,
+    required this.isLive,
   });
 
   @override
@@ -184,35 +311,376 @@ class _PriceHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSizes.md,
-        AppSizes.sm,
+        AppSizes.xs,
         AppSizes.md,
         0,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            '\$${coin.currentPrice.toStringAsFixed(coin.currentPrice < 1 ? 4 : 2)}',
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: Text(
+              '\$${livePrice.toStringAsFixed(livePrice < 1 ? 4 : 2)}',
+              key: ValueKey(livePrice),
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 21,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
-          const SizedBox(width: AppSizes.sm),
+          const SizedBox(width: AppSizes.xs),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: AppColors.priceChangeSurface(gain),
-              borderRadius: BorderRadius.circular(8),
+              color: trendColor,
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               '${gain >= 0 ? '+' : ''}${gain.toStringAsFixed(2)}%',
-              style: TextStyle(
-                color: trendColor,
-                fontSize: 13,
+              style: const TextStyle(
+                color: AppColors.textWhite,
+                fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
+            ),
+          ),
+          const Spacer(),
+          if (isLive)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _LivePulseDot(),
+                const SizedBox(width: 4),
+                const Text(
+                  'LIVE',
+                  style: TextStyle(
+                    color: AppColors.bullish,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LivePulseDot extends StatefulWidget {
+  @override
+  State<_LivePulseDot> createState() => _LivePulseDotState();
+}
+
+class _LivePulseDotState extends State<_LivePulseDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: Tween(begin: 0.3, end: 1.0).animate(_controller),
+      child: Container(
+        width: 7,
+        height: 7,
+        decoration: const BoxDecoration(
+          color: AppColors.bullish,
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+}
+
+// ============== AI parameters panel ==============
+
+class _AiParametersPanel extends StatelessWidget {
+  final Coin coin;
+  final double livePrice;
+  final Color trendColor;
+
+  const _AiParametersPanel({
+    required this.coin,
+    required this.livePrice,
+    required this.trendColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final confidence = coin.confidenceScore;
+    final signal = _tier(confidence, 'Strong', 'Moderate', 'Weak');
+    final riskSpreadPercent =
+        ((coin.entryZoneHigh - coin.invalidationLevel).abs() /
+            coin.currentPrice) *
+        100;
+    final risk = riskSpreadPercent >= 12
+        ? _Tier('High', AppColors.bearish)
+        : riskSpreadPercent >= 6
+        ? _Tier('Medium', AppColors.warning)
+        : _Tier('Low', AppColors.bullish);
+    final distanceToTargetPercent =
+        ((coin.predictedPrice - livePrice) / livePrice) * 100;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: AppSizes.md),
+      padding: const EdgeInsets.all(AppSizes.sm),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.psychology_rounded,
+                size: 13,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: 5),
+              const Text(
+                'AI ANALYSIS',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSizes.xs),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Confidence in target',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                '$confidence%',
+                style: TextStyle(
+                  color: _confidenceColor(confidence),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: confidence / 100,
+              minHeight: 5,
+              backgroundColor: AppColors.softGrey,
+              valueColor: AlwaysStoppedAnimation(_confidenceColor(confidence)),
+            ),
+          ),
+          const SizedBox(height: AppSizes.sm),
+          Row(
+            children: [
+              Expanded(
+                child: _statChip(
+                  Icons.speed_rounded,
+                  'Signal',
+                  signal.label,
+                  signal.color,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _statChip(
+                  Icons.warning_amber_rounded,
+                  'Risk',
+                  risk.label,
+                  risk.color,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _statChip(
+                  Icons.timer_outlined,
+                  'Horizon',
+                  '${coin.suggestedHoldingDays}d',
+                  AppColors.info,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _statChip(
+                  distanceToTargetPercent >= 0
+                      ? Icons.trending_up_rounded
+                      : Icons.trending_down_rounded,
+                  'To Target',
+                  '${distanceToTargetPercent >= 0 ? '+' : ''}${distanceToTargetPercent.toStringAsFixed(1)}%',
+                  trendColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statChip(IconData icon, String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 8),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _confidenceColor(int c) => c >= 70
+      ? AppColors.bullish
+      : c >= 45
+      ? AppColors.warning
+      : AppColors.bearish;
+
+  _Tier _tier(int confidence, String strong, String mid, String weak) {
+    if (confidence >= 70) return _Tier(strong, AppColors.bullish);
+    if (confidence >= 45) return _Tier(mid, AppColors.warning);
+    return _Tier(weak, AppColors.bearish);
+  }
+}
+
+class _Tier {
+  final String label;
+  final Color color;
+  const _Tier(this.label, this.color);
+}
+
+// ============== Trade plan panel ==============
+
+class _TradePlanPanel extends StatelessWidget {
+  final Coin coin;
+  const _TradePlanPanel({required this.coin});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: AppSizes.md),
+      padding: const EdgeInsets.all(AppSizes.sm),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'TRADE PLAN',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: AppSizes.xs),
+          Row(
+            children: [
+              Expanded(
+                child: _tile(
+                  'Entry zone',
+                  '\$${coin.entryZoneLow.toStringAsFixed(2)}–\$${coin.entryZoneHigh.toStringAsFixed(2)}',
+                  AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(width: AppSizes.xs),
+              Expanded(
+                child: _tile(
+                  'Exit target',
+                  '\$${coin.exitTarget.toStringAsFixed(2)}',
+                  AppColors.bullish,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSizes.xs),
+          Row(
+            children: [
+              Expanded(
+                child: _tile(
+                  'Invalidation',
+                  '\$${coin.invalidationLevel.toStringAsFixed(2)}',
+                  AppColors.bearish,
+                ),
+              ),
+              const SizedBox(width: AppSizes.xs),
+              Expanded(
+                child: _tile(
+                  'Allocation',
+                  '${coin.suggestedInvestmentPercent.toStringAsFixed(0)}% of portfolio',
+                  AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tile(String label, String value, Color valueColor) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 9),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            value,
+            style: TextStyle(
+              color: valueColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -221,40 +689,174 @@ class _PriceHeader extends StatelessWidget {
   }
 }
 
-// ============== Recommendation footer ==============
+// ============== Buy/Sell action bar (dummy) ==============
 
-class _RecommendationFooter extends StatelessWidget {
+class _TradeActionBar extends StatelessWidget {
   final Coin coin;
-  final Color trendColor;
+  final double livePrice;
+  final TradeSide side;
+  final TextEditingController amountController;
+  final ValueChanged<TradeSide> onSideChanged;
+  final VoidCallback onSubmit;
 
-  const _RecommendationFooter({required this.coin, required this.trendColor});
+  const _TradeActionBar({
+    required this.coin,
+    required this.livePrice,
+    required this.side,
+    required this.amountController,
+    required this.onSideChanged,
+    required this.onSubmit,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final isBuy = side == TradeSide.buy;
+    final actionColor = isBuy ? AppColors.bullish : AppColors.bearish;
+
     return Container(
-      margin: const EdgeInsets.all(AppSizes.md),
-      padding: const EdgeInsets.all(AppSizes.md),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder),
+      padding: EdgeInsets.fromLTRB(
+        AppSizes.md,
+        AppSizes.xs,
+        AppSizes.md,
+        AppSizes.xs + MediaQuery.of(context).padding.bottom,
       ),
-      child: Row(
-        children: [
-          Icon(Icons.query_stats_rounded, size: 18, color: trendColor),
-          const SizedBox(width: AppSizes.sm),
-          Expanded(
-            child: Text(
-              'Entry \$${coin.entryZoneLow.toStringAsFixed(2)}–\$${coin.entryZoneHigh.toStringAsFixed(2)} · '
-              'Target \$${coin.exitTarget.toStringAsFixed(2)} · '
-              'Invalidation \$${coin.invalidationLevel.toStringAsFixed(2)} — not a guarantee',
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppColors.textSecondary,
-              ),
-            ),
+      decoration: const BoxDecoration(
+        color: AppColors.cardSurface,
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 10,
+            offset: Offset(0, -2),
           ),
         ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Buy / Sell toggle ──────────────────────────
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: AppColors.cardBackground,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _sideTab(
+                    context,
+                    'Buy',
+                    TradeSide.buy,
+                    AppColors.bullish,
+                  ),
+                ),
+                Expanded(
+                  child: _sideTab(
+                    context,
+                    'Sell',
+                    TradeSide.sell,
+                    AppColors.bearish,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          // ── Amount input + qty preview ────────────────
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: SizedBox(
+                  height: 38,
+                  child: TextField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      prefixText: '\$ ',
+                      prefixStyle: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                      isDense: true,
+                      filled: true,
+                      fillColor: AppColors.cardBackground,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(9),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: SizedBox(
+                  height: 38,
+                  child: ElevatedButton(
+                    onPressed: onSubmit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: actionColor,
+                      foregroundColor: AppColors.textWhite,
+                      elevation: 0,
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                    ),
+                    child: Text(
+                      isBuy ? 'Buy ${coin.symbol}' : 'Sell ${coin.symbol}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sideTab(
+    BuildContext context,
+    String label,
+    TradeSide value,
+    Color color,
+  ) {
+    final active = side == value;
+    return GestureDetector(
+      onTap: () => onSideChanged(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? color : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: active ? AppColors.textWhite : AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     );
   }

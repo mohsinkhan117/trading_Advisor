@@ -31,9 +31,9 @@ class Homepage extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: AppSizes.md),
                 children: const [
                   _SectionHeader(title: 'Recommended Coins'),
-                  // SizedBox(height: AppSizes.sm),
+                  SizedBox(height: AppSizes.sm),
                   RecommendedCoins(),
-                  // SizedBox(height: AppSizes.lg),
+                  SizedBox(height: AppSizes.lg),
                   _SectionHeader(title: 'Market'),
                   SizedBox(height: AppSizes.sm),
                   MarketOverview(),
@@ -159,11 +159,7 @@ class RecommendedCoin extends StatelessWidget {
               // ── Trend accent strip ──────────────────────────
               Container(
                 height: 3,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [trendColor, trendColor.withValues(alpha: 0.2)],
-                  ),
-                ),
+                decoration: BoxDecoration(color: trendColor),
               ),
               Padding(
                 padding: const EdgeInsets.all(AppSizes.md),
@@ -337,186 +333,355 @@ class CoinDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     final gain = coin.expectedGainPercent;
     final trendColor = AppColors.priceChangeColor(gain);
-    final trendSurface = AppColors.priceChangeSurface(gain);
     final isUp = gain >= 0;
+    final confidence = coin.confidenceScore;
 
-    return Container(
-      padding: const EdgeInsets.all(AppSizes.lg),
-      decoration: const BoxDecoration(
-        color: AppColors.cardSurface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    // Derived AI stats for display — these should come straight off the
+    // model/agent response once it's real; computed here only because the
+    // Coin model doesn't carry them yet.
+    final riskLevel = _riskLevel(coin);
+    final signalStrength = _signalStrength(confidence);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppColors.cardSurface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(
+              AppSizes.lg,
+              AppSizes.sm,
+              AppSizes.lg,
+              AppSizes.lg,
+            ),
             children: [
-              CoinAvatar(coin: coin, radius: 20),
-              const SizedBox(width: AppSizes.sm),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              // ── Drag handle ──────────────────────────────────
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: AppSizes.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.cardBorder,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+
+              // ── Header ───────────────────────────────────────
+              Row(
                 children: [
-                  Text(
-                    coin.name,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                  CoinAvatar(coin: coin, radius: 22),
+                  const SizedBox(width: AppSizes.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          coin.name,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          coin.symbol,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Text(
-                    coin.symbol,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: trendColor,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      isUp ? 'BULLISH' : 'BEARISH',
+                      style: const TextStyle(
+                        color: AppColors.textWhite,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const Spacer(),
+              const SizedBox(height: AppSizes.lg),
+
+              // ── Price comparison ─────────────────────────────
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.all(AppSizes.md),
                 decoration: BoxDecoration(
-                  color: trendSurface,
-                  borderRadius: BorderRadius.circular(20),
+                  color: AppColors.cardBackground,
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Text(
-                  isUp ? 'BULLISH' : 'BEARISH',
-                  style: TextStyle(
-                    color: trendColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSizes.lg),
-          Row(
-            children: [
-              Expanded(
-                child: _statBlock(
-                  'Current Price',
-                  '\$${coin.currentPrice.toStringAsFixed(2)}',
-                ),
-              ),
-              Expanded(
-                child: _statBlock(
-                  'Target Price',
-                  '\$${coin.predictedPrice.toStringAsFixed(2)}',
-                  valueColor: trendColor,
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    const Text(
-                      'Confidence',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 11,
+                    Expanded(
+                      child: _priceBlock(
+                        'Current',
+                        coin.currentPrice,
+                        AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.confidenceBadgeBackground,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '${coin.confidenceScore}%',
-                        style: const TextStyle(
-                          color: AppColors.confidenceBadgeText,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      color: AppColors.textMuted,
+                      size: 18,
+                    ),
+                    Expanded(
+                      child: _priceBlock(
+                        'AI Target',
+                        coin.predictedPrice,
+                        trendColor,
+                        alignEnd: true,
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: AppSizes.md),
-          const Divider(color: AppColors.cardBorder),
-          const SizedBox(height: AppSizes.md),
-          _detailRow(
-            'Suggested holding window',
-            '${coin.suggestedHoldingDays} days',
-          ),
-          _detailRow(
-            'Suggested allocation',
-            '${coin.suggestedInvestmentPercent.toStringAsFixed(0)}% of portfolio',
-          ),
-          _detailRow(
-            'Entry zone',
-            '\$${coin.entryZoneLow.toStringAsFixed(2)} – \$${coin.entryZoneHigh.toStringAsFixed(2)}',
-          ),
-          _detailRow('Exit target', '\$${coin.exitTarget.toStringAsFixed(2)}'),
-          _detailRow(
-            'Invalidation level',
-            '\$${coin.invalidationLevel.toStringAsFixed(2)}',
-          ),
-          const SizedBox(height: AppSizes.lg),
-          SizedBox(
-            width: double.infinity,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: AppColors.buttonActiveLinearGradientColor,
-                borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: AppSizes.md),
+
+              // ── AI Analysis ───────────────────────────────────
+              Container(
+                padding: const EdgeInsets.all(AppSizes.md),
+                decoration: BoxDecoration(
+                  color: AppColors.cardBackground,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.psychology_rounded,
+                          size: 16,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'AI ANALYSIS',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSizes.sm),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Confidence this target is reached',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          '$confidence%',
+                          style: TextStyle(
+                            color: _confidenceColor(confidence),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: confidence / 100,
+                        minHeight: 6,
+                        backgroundColor: AppColors.softGrey,
+                        valueColor: AlwaysStoppedAnimation(
+                          _confidenceColor(confidence),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSizes.md),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _aiStatChip(
+                            icon: Icons.speed_rounded,
+                            label: 'Signal',
+                            value: signalStrength.label,
+                            color: signalStrength.color,
+                          ),
+                        ),
+                        const SizedBox(width: AppSizes.xs),
+                        Expanded(
+                          child: _aiStatChip(
+                            icon: Icons.warning_amber_rounded,
+                            label: 'Risk',
+                            value: riskLevel.label,
+                            color: riskLevel.color,
+                          ),
+                        ),
+                        const SizedBox(width: AppSizes.xs),
+                        Expanded(
+                          child: _aiStatChip(
+                            icon: Icons.timer_outlined,
+                            label: 'Horizon',
+                            value: '${coin.suggestedHoldingDays}d',
+                            color: AppColors.info,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
+              const SizedBox(height: AppSizes.md),
+
+              // ── Trade plan grid ───────────────────────────────
+              Container(
+                padding: const EdgeInsets.all(AppSizes.md),
+                decoration: BoxDecoration(
+                  color: AppColors.cardBackground,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'TRADE PLAN',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: AppSizes.sm),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _tradeStat(
+                            'Entry zone',
+                            '\$${coin.entryZoneLow.toStringAsFixed(2)} – \$${coin.entryZoneHigh.toStringAsFixed(2)}',
+                            AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: AppSizes.sm),
+                        Expanded(
+                          child: _tradeStat(
+                            'Exit target',
+                            '\$${coin.exitTarget.toStringAsFixed(2)}',
+                            AppColors.bullish,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSizes.sm),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _tradeStat(
+                            'Invalidation',
+                            '\$${coin.invalidationLevel.toStringAsFixed(2)}',
+                            AppColors.bearish,
+                          ),
+                        ),
+                        const SizedBox(width: AppSizes.sm),
+                        Expanded(
+                          child: _tradeStat(
+                            'Allocation',
+                            '${coin.suggestedInvestmentPercent.toStringAsFixed(0)}% of portfolio',
+                            AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSizes.lg),
+
+              // ── CTA ────────────────────────────────────────────
+              SizedBox(
+                width: double.infinity,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: AppColors.buttonActiveLinearGradientColor,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CoinChartPage(coin: coin),
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  );
-                },
-                icon: const Icon(
-                  Icons.show_chart,
-                  size: 18,
-                  color: AppColors.textWhite,
-                ),
-                label: const Text(
-                  'View Chart',
-                  style: TextStyle(color: AppColors.textWhite),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CoinChartPage(coin: coin),
+                        ),
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.show_chart,
+                      size: 18,
+                      color: AppColors.textWhite,
+                    ),
+                    label: const Text(
+                      'View Chart',
+                      style: TextStyle(color: AppColors.textWhite),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: AppSizes.sm),
+              const Text(
+                'AI-generated signal, not financial advice. Not auto-executed.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSizes.sm),
-          const Text(
-            'Educational signal, not financial advice. Not auto-executed.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textMuted, fontSize: 11),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _statBlock(String label, String value, {Color? valueColor}) {
+  Widget _priceBlock(
+    String label,
+    double price,
+    Color valueColor, {
+    bool alignEnd = false,
+  }) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         Text(
           label,
@@ -524,42 +689,152 @@ class CoinDetails extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         Text(
-          value,
+          '\$${price.toStringAsFixed(price < 1 ? 4 : 2)}',
           style: TextStyle(
-            color: valueColor ?? AppColors.textPrimary,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
+            color: valueColor,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ],
     );
   }
 
-  Widget _detailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _aiStatChip({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 9),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tradeStat(String label, String value, Color valueColor) {
+    return Container(
+      padding: const EdgeInsets.all(AppSizes.sm),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
             style: const TextStyle(
               color: AppColors.textSecondary,
-              fontSize: 13,
+              fontSize: 10,
             ),
           ),
+          const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: valueColor,
               fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
       ),
     );
   }
+
+  Color _confidenceColor(int confidence) {
+    if (confidence >= 70) return AppColors.bullish;
+    if (confidence >= 45) return AppColors.warning;
+    return AppColors.bearish;
+  }
+
+  _Tier _riskLevel(Coin coin) {
+    final spreadPercent =
+        ((coin.entryZoneHigh - coin.invalidationLevel).abs() /
+            coin.currentPrice) *
+        100;
+    if (spreadPercent >= 12) return _Tier('High', AppColors.bearish);
+    if (spreadPercent >= 6) return _Tier('Medium', AppColors.warning);
+    return _Tier('Low', AppColors.bullish);
+  }
+
+  _Tier _signalStrength(int confidence) {
+    if (confidence >= 70) return _Tier('Strong', AppColors.bullish);
+    if (confidence >= 45) return _Tier('Moderate', AppColors.warning);
+    return _Tier('Weak', AppColors.bearish);
+  }
+}
+
+class _Tier {
+  final String label;
+  final Color color;
+  const _Tier(this.label, this.color);
+}
+
+Widget _statBlock(String label, String value, {Color? valueColor}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+      ),
+      const SizedBox(height: 2),
+      Text(
+        value,
+        style: TextStyle(
+          color: valueColor ?? AppColors.textPrimary,
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _detailRow(String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class CoinAvatar extends StatelessWidget {
