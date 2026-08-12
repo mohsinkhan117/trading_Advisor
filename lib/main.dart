@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
       title: 'Trading Advisor',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.light,
+      themeMode: ThemeMode.system,
       home: const Homepage(),
     );
   }
