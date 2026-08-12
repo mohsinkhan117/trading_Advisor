@@ -17,35 +17,28 @@ class Homepage extends StatelessWidget {
     final loadFailed = vm.error != null && vm.marketCoins.isEmpty;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        foregroundColor: AppColors.textPrimary,
-        title: const Text('Market Overview'),
-      ),
       body: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: () => context.read<HomeViewModel>().refresh(),
         child: isFirstLoad
             ? const Center(child: CircularProgressIndicator())
             : loadFailed
-                ? _ErrorState(
-                    message: vm.error!,
-                    onRetry: () => context.read<HomeViewModel>().refresh(),
-                  )
-                : ListView(
-                    padding: const EdgeInsets.symmetric(vertical: AppSizes.md),
-                    children: const [
-                      _SectionHeader(title: 'Recommended Coins'),
-                      SizedBox(height: AppSizes.sm),
-                      RecommendedCoins(),
-                      SizedBox(height: AppSizes.lg),
-                      _SectionHeader(title: 'Market'),
-                      SizedBox(height: AppSizes.sm),
-                      MarketOverview(),
-                    ],
-                  ),
+            ? _ErrorState(
+                message: vm.error!,
+                onRetry: () => context.read<HomeViewModel>().refresh(),
+              )
+            : ListView(
+                padding: const EdgeInsets.symmetric(vertical: AppSizes.md),
+                children: const [
+                  _SectionHeader(title: 'Recommended Coins'),
+                  // SizedBox(height: AppSizes.sm),
+                  RecommendedCoins(),
+                  // SizedBox(height: AppSizes.lg),
+                  _SectionHeader(title: 'Market'),
+                  SizedBox(height: AppSizes.sm),
+                  MarketOverview(),
+                ],
+              ),
       ),
     );
   }
@@ -93,11 +86,7 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
       child: Text(
         title,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-        ),
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -113,12 +102,12 @@ class RecommendedCoins extends StatelessWidget {
     final coins = context.watch<HomeViewModel>().recommendedCoins;
 
     return SizedBox(
-      height: 168,
+      height: 170,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
         itemCount: coins.length,
-        separatorBuilder: (_, _) => const SizedBox(width: AppSizes.sm),
+        separatorBuilder: (_, _) => SizedBox(width: AppSizes.xs),
         itemBuilder: (context, index) {
           final coin = coins[index];
           return RecommendedCoin(
@@ -150,80 +139,190 @@ class RecommendedCoin extends StatelessWidget {
     final gain = coin.expectedGainPercent;
     final trendColor = AppColors.priceChangeColor(gain);
     final isUp = gain >= 0;
+    final confidence = coin.confidenceScore; // 0-100
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 150,
-        padding: const EdgeInsets.all(AppSizes.md),
-        decoration: BoxDecoration(
-          color: AppColors.cardSurface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.cardBorder),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CoinAvatar(coin: coin, radius: 14),
-                const SizedBox(width: AppSizes.xs),
-                Text(
-                  coin.symbol,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w700,
+    return ClipRRect(
+      borderRadius: BorderRadius.all(Radius.circular(18)),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 176,
+          decoration: BoxDecoration(
+            color: AppColors.cardSurface,
+            border: Border.all(color: AppColors.cardBorder),
+            borderRadius: BorderRadius.all(Radius.circular(18)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Trend accent strip ──────────────────────────
+              Container(
+                height: 3,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [trendColor, trendColor.withValues(alpha: 0.2)],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: AppSizes.sm),
-            Text(
-              '\$${coin.currentPrice.toStringAsFixed(coin.currentPrice < 1 ? 4 : 2)}',
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
               ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(
-                  isUp ? Icons.trending_up : Icons.trending_down,
-                  size: 14,
-                  color: trendColor,
+              Padding(
+                padding: const EdgeInsets.all(AppSizes.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Header: avatar + symbol + trend chip ──
+                    Row(
+                      children: [
+                        CoinAvatar(coin: coin, radius: 15),
+                        const SizedBox(width: AppSizes.xs),
+                        Expanded(
+                          child: Text(
+                            coin.symbol,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.priceChangeSurface(gain),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isUp
+                                    ? Icons.arrow_upward_rounded
+                                    : Icons.arrow_downward_rounded,
+                                size: 11,
+                                color: trendColor,
+                              ),
+                              Text(
+                                '${gain.abs().toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  color: trendColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSizes.sm),
+
+                    // ── Current price ──────────────────────────
+                    Text(
+                      '\$${coin.currentPrice.toStringAsFixed(coin.currentPrice < 1 ? 4 : 2)}',
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+
+                    // ── Target price, framed as the AI's claim ──
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.trending_up_rounded,
+                          size: 12,
+                          color: trendColor,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          'Target \$${coin.predictedPrice.toStringAsFixed(coin.predictedPrice < 1 ? 4 : 2)}',
+                          style: TextStyle(
+                            color: trendColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSizes.sm),
+
+                    // ── AI confidence bar ───────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'AI CONFIDENCE',
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                        Text(
+                          '$confidence%',
+                          style: TextStyle(
+                            color: _confidenceColor(confidence),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: confidence / 100,
+                        minHeight: 5,
+                        backgroundColor: AppColors.softGrey,
+                        valueColor: AlwaysStoppedAnimation(
+                          _confidenceColor(confidence),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSizes.sm),
+
+                    // ── Timeframe ────────────────────────────────
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.schedule_rounded,
+                          size: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          'by ${_formatDate(coin.targetDate)}',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  '${gain.toStringAsFixed(1)}%',
-                  style: TextStyle(
-                    color: trendColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const Spacer(),
-            Text(
-              'by ${_formatDate(coin.targetDate)}',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  /// Confidence tiers, so a 40% "confident" claim doesn't read as visually
+  /// reassuring as a 90% one — the color itself communicates reliability.
+  Color _confidenceColor(int confidence) {
+    if (confidence >= 70) return AppColors.bullish;
+    if (confidence >= 45) return AppColors.warning;
+    return AppColors.bearish;
   }
 
   String _formatDate(DateTime d) => '${d.month}/${d.day}';

@@ -70,11 +70,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
-  flutter_localizations:
-    dependency: transitive
-    description: flutter
-    source: sdk
-    version: "0.0.0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -109,14 +104,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.20.2"
-  k_chart_multiple:
-    dependency: "direct main"
-    description:
-      name: k_chart_multiple
-      sha256: "8a83b1984cab51ad8f09d32aadc285b034ef9d1c3a976fd7f197e1a505a7a48d"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.4.1"
   leak_tracker:
     dependency: transitive
     description:
@@ -306,6 +293,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.10"
+  trading_chart_flutter:
+    dependency: "direct main"
+    description:
+      name: trading_chart_flutter
+      sha256: "43e1341103c0509b03e9164e89ca9aa8b968211329768591cd16f0313ecc2579"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.1"
   typed_data:
     dependency: transitive
     description:

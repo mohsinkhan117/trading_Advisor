@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
-import 'package:k_chart_multiple/flutter_k_chart.dart';
 import 'package:trading_advisor/core/config/env_config.dart';
 import 'package:trading_advisor/core/models/coin_model.dart';
+import 'package:trading_chart_flutter/trading_chart_flutter.dart';
 
 class CoinApiService {
   static const _baseUrl = 'https://api.coingecko.com/api/v3';
@@ -39,7 +39,7 @@ class CoinApiService {
   /// into OHLCV candles for the chart. Uses `market_chart` (not `/ohlc`) so
   /// price and volume come from a single call at matching timestamps —
   /// mixing endpoints would mean merging two different granularities.
-  Future<List<KLineEntity>> fetchChartCandles(
+  Future<List<Candle>> fetchChartCandles(
     String coinId, {
     int days = 7,
     int bucketSize = 4,
@@ -62,7 +62,7 @@ class CoinApiService {
       throw Exception('CoinGecko returned no price history for $coinId');
     }
 
-    final maps = <Map<String, dynamic>>[];
+    final candles = <Candle>[];
     for (int i = 0; i < prices.length; i += bucketSize) {
       final end = min(i + bucketSize, prices.length);
       final bucket = prices
@@ -73,23 +73,24 @@ class CoinApiService {
           .sublist(i, min(end, volumes.length))
           .map((v) => (v[1] as num).toDouble())
           .toList();
-      final avgVolume = volBucket.isEmpty
+      final totalVolume = volBucket.isEmpty
           ? 0.0
-          : volBucket.reduce((a, b) => a + b) / volBucket.length;
+          : volBucket.reduce((a, b) => a + b);
 
-      maps.add({
-        'time': (prices[i][0] as num).toInt(),
-        'open': bucket.first,
-        'close': bucket.last,
-        'high': bucket.reduce(max),
-        'low': bucket.reduce(min),
-        'vol': avgVolume,
-      });
+      candles.add(
+        Candle(
+          // CoinGecko timestamps are milliseconds; Candle.time is seconds.
+          time: (prices[i][0] as num).toInt() ~/ 1000,
+          open: bucket.first,
+          close: bucket.last,
+          high: bucket.reduce(max),
+          low: bucket.reduce(min),
+          volume: totalVolume,
+        ),
+      );
     }
 
-    final datas = maps.map((m) => KLineEntity.fromJson(m)).toList();
-    DataUtil.calculate(datas); // required — computes MA/indicators/probability
-    return datas;
+    return candles;
   }
 
   Coin _mapToCoin(Map<String, dynamic> json) {
