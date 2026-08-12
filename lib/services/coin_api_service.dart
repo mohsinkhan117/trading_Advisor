@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:trading_advisor/core/config/env_config.dart';
 import 'package:trading_advisor/core/models/coin_model.dart';
+import 'package:trading_advisor/core/models/search_model.dart';
 import 'package:trading_chart_flutter/trading_chart_flutter.dart';
 
 class CoinApiService {
@@ -127,5 +128,39 @@ class CoinApiService {
       exitTarget: predictedPrice,
       invalidationLevel: currentPrice * (isBullish ? 0.93 : 1.07),
     );
+  }
+
+  /// Live coin search via CoinGecko's /search endpoint (name, symbol, id, thumb).
+  Future<List<CoinSearchResult>> searchCoins(String query) async {
+    final uri = Uri.parse(
+      '$_baseUrl/search?query=${Uri.encodeQueryComponent(query)}',
+    );
+    final response = await http.get(uri);
+
+    if (response.statusCode != 200) {
+      throw Exception('Search failed (${response.statusCode})');
+    }
+
+    final Map<String, dynamic> data = json.decode(response.body);
+    final List<dynamic> coins = data['coins'] as List<dynamic>? ?? [];
+    return coins
+        .take(20)
+        .map((c) => CoinSearchResult.fromJson(c as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Resolves a single coin's full market data (needed before opening the
+  /// chart page, since /search only returns id/name/symbol/thumb).
+  Future<Coin> fetchCoinById(String id) async {
+    final uri = Uri.parse('$_baseUrl/coins/markets?vs_currency=usd&ids=$id');
+    final response = await http.get(uri);
+
+    if (response.statusCode != 200) {
+      throw Exception('Could not load coin ($response.statusCode)');
+    }
+
+    final List<dynamic> data = json.decode(response.body);
+    if (data.isEmpty) throw Exception('Coin not found');
+    return _mapToCoin(data.first as Map<String, dynamic>);
   }
 }

@@ -5,6 +5,7 @@ import 'package:trading_advisor/core/theme/app_colors/app_colors.dart';
 import 'package:trading_advisor/core/constants/sizes/sizes.dart';
 import 'package:trading_advisor/ui/coin_chart_page.dart';
 import 'package:trading_advisor/ui/homepage_view_model.dart';
+import 'package:trading_advisor/ui/searchbar.dart';
 import 'package:trading_advisor/widgets/price_change_card.dart';
 
 class Homepage extends StatelessWidget {
@@ -33,7 +34,9 @@ class Homepage extends StatelessWidget {
                   _SectionHeader(title: 'Recommended Coins'),
                   SizedBox(height: AppSizes.sm),
                   RecommendedCoins(),
-                  SizedBox(height: AppSizes.lg),
+                  SizedBox(height: AppSizes.sm),
+                  CoinSearchBar(),
+                  SizedBox(height: AppSizes.xs),
                   _SectionHeader(title: 'Market'),
                   SizedBox(height: AppSizes.sm),
                   MarketOverview(),
